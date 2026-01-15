@@ -148,7 +148,7 @@ public class MsgPackParser
     {
         _position++;
         float value = BitConverter.ToSingle(ReadBigEndian(4), 0);
-        _jsonBuilder.Append(value.ToString("G"));
+        AppendFloatValue(value);
         return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Float };
     }
 
@@ -156,8 +156,20 @@ public class MsgPackParser
     {
         _position++;
         double value = BitConverter.ToDouble(ReadBigEndian(8), 0);
-        _jsonBuilder.Append(value.ToString("G"));
+        AppendFloatValue(value);
         return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Float };
+    }
+    
+    private void AppendFloatValue(double value)
+    {
+        if (double.IsNaN(value))
+            _jsonBuilder.Append("\"NaN\"");
+        else if (double.IsPositiveInfinity(value))
+            _jsonBuilder.Append("\"Infinity\"");
+        else if (double.IsNegativeInfinity(value))
+            _jsonBuilder.Append("\"-Infinity\"");
+        else
+            _jsonBuilder.Append(value.ToString("G", System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private MsgPackNode ParseUInt8(string path)
