@@ -158,14 +158,26 @@ public partial class MainWindow : Window
     {
         if (_hexHighlighter == null) return;
         
+        var text = HexEditor.Text;
+        if (string.IsNullOrEmpty(text)) return;
+        
+        // Calculate actual line length from first line
+        int firstNewline = text.IndexOf('\n');
+        int lineLength = firstNewline > 0 ? firstNewline + 1 : 78; // +1 for \n
+        
         var ranges = new List<(int start, int end)>();
         for (int b = startByte; b < endByte; b++)
         {
             int line = b / 16;
             int col = b % 16;
-            int lineStart = line * 61;
+            int lineStart = line * lineLength;
+            // Address(10) + hex position: col*3 + extra space after byte 7
             int hexStart = lineStart + 10 + col * 3 + (col >= 8 ? 1 : 0);
-            ranges.Add((hexStart, hexStart + 2));
+            
+            if (hexStart + 2 <= text.Length)
+            {
+                ranges.Add((hexStart, hexStart + 2));
+            }
         }
         
         _hexHighlighter.SetHighlightRanges(ranges);
@@ -174,23 +186,18 @@ public partial class MainWindow : Window
 
     private void HighlightJsonRange(int startIndex, int endIndex)
     {
-        if (_jsonHighlighter == null) return;
+        if (_jsonHighlighter == null || _viewModel == null) return;
         
         int jsonLen = JsonEditor.Text.Length;
         
-        int formattedStart = MapCompactToFormattedPosition(startIndex);
-        int formattedEnd = MapCompactToFormattedPosition(endIndex);
+        int formattedStart = _viewModel.MapCompactToFormatted(startIndex);
+        int formattedEnd = _viewModel.MapCompactToFormatted(endIndex);
         
         formattedStart = Math.Clamp(formattedStart, 0, jsonLen);
         formattedEnd = Math.Clamp(formattedEnd, 0, jsonLen);
         
         _jsonHighlighter.SetHighlightRange(formattedStart, formattedEnd);
         JsonEditor.TextArea.TextView.Redraw();
-    }
-
-    private int MapCompactToFormattedPosition(int compactPos)
-    {
-        return compactPos;
     }
 
     private async Task<IStorageFile?> OpenFileDialogAsync()
@@ -201,8 +208,8 @@ public partial class MainWindow : Window
             AllowMultiple = false,
             FileTypeFilter = new[]
             {
-                new FilePickerFileType("MsgPack Files") { Patterns = new[] { "*.msgpack", "*.mp", "*.bin" } },
-                new FilePickerFileType("All Files") { Patterns = new[] { "*" } }
+                new FilePickerFileType("All Files") { Patterns = new[] { "*.*" } },
+                new FilePickerFileType("MsgPack Files") { Patterns = new[] { "*.msgpack", "*.mp", "*.bin" } }
             }
         });
         return files.FirstOrDefault();

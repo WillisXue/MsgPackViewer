@@ -37,9 +37,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private byte[] _rawData = Array.Empty<byte>();
     private MsgPackNode? _rootNode;
     private List<MsgPackNode> _allNodes = new();
+    private int[] _jsonPositionMap = Array.Empty<int>();
     
     public byte[] RawData => _rawData;
     public List<MsgPackNode> AllNodes => _allNodes;
+    public int[] JsonPositionMap => _jsonPositionMap;
     
     public event Action? DataLoaded;
     
@@ -61,7 +63,9 @@ public partial class MainWindowViewModel : ViewModelBase
             _rootNode = rootNode;
             _allNodes = allNodes;
             
-            JsonText = MsgPackParser.FormatJson(json);
+            var (formattedJson, positionMap) = MsgPackParser.FormatJsonWithMap(json);
+            JsonText = formattedJson;
+            _jsonPositionMap = positionMap;
             HexText = MsgPackParser.FormatHex(data);
             CurrentFilePath = filePath;
             IsModified = false;
@@ -145,12 +149,15 @@ public partial class MainWindowViewModel : ViewModelBase
         IsModified = true;
     }
 
-    public MsgPackNode? FindNodeByJsonPosition(int position)
+    public MsgPackNode? FindNodeByJsonPosition(int formattedPosition)
     {
         MsgPackNode? best = null;
         foreach (var node in _allNodes)
         {
-            if (position >= node.JsonStartIndex && position <= node.JsonEndIndex)
+            int formattedStart = MapCompactToFormatted(node.JsonStartIndex);
+            int formattedEnd = MapCompactToFormatted(node.JsonEndIndex);
+            
+            if (formattedPosition >= formattedStart && formattedPosition <= formattedEnd)
             {
                 if (best == null || (node.JsonEndIndex - node.JsonStartIndex) < (best.JsonEndIndex - best.JsonStartIndex))
                 {
@@ -159,6 +166,14 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
         return best;
+    }
+    
+    public int MapCompactToFormatted(int compactPos)
+    {
+        if (_jsonPositionMap.Length == 0) return compactPos;
+        if (compactPos < 0) return 0;
+        if (compactPos >= _jsonPositionMap.Length) return _jsonPositionMap[^1];
+        return _jsonPositionMap[compactPos];
     }
 
     public MsgPackNode? FindNodeByHexOffset(int byteOffset)

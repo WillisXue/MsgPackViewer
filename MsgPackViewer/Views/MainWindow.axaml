@@ -34,8 +34,8 @@
             <DockPanel Grid.Column="0">
                 <TextBlock DockPanel.Dock="Top" Text="JSON" FontWeight="Bold" Margin="8,4"/>
                 <ae:TextEditor Name="JsonEditor"
-                               FontFamily="Consolas"
-                               FontSize="13"
+                               FontFamily="Microsoft YaHei"
+                               FontSize="15"
                                ShowLineNumbers="True"
                                Margin="4"/>
             </DockPanel>

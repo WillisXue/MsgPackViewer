@@ -506,7 +506,7 @@ public class MsgPackParser
         return result;
     }
 
-    public static string FormatJson(string json)
+    public static (string formattedJson, int[] positionMap) FormatJsonWithMap(string json)
     {
         try
         {
@@ -516,12 +516,55 @@ public class MsgPackParser
                 WriteIndented = true,
                 Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             };
-            return JsonSerializer.Serialize(doc.RootElement, options);
+            string formatted = JsonSerializer.Serialize(doc.RootElement, options);
+            
+            // Build position map from compact to formatted
+            int[] map = new int[json.Length + 1];
+            int compactIdx = 0;
+            int formattedIdx = 0;
+            
+            while (compactIdx < json.Length && formattedIdx < formatted.Length)
+            {
+                // Skip whitespace in formatted JSON
+                while (formattedIdx < formatted.Length && 
+                       (formatted[formattedIdx] == ' ' || formatted[formattedIdx] == '\n' || 
+                        formatted[formattedIdx] == '\r' || formatted[formattedIdx] == '\t'))
+                {
+                    formattedIdx++;
+                }
+                
+                if (formattedIdx < formatted.Length)
+                {
+                    map[compactIdx] = formattedIdx;
+                    
+                    // Handle string content (may differ due to encoding)
+                    if (json[compactIdx] == formatted[formattedIdx])
+                    {
+                        compactIdx++;
+                        formattedIdx++;
+                    }
+                    else
+                    {
+                        // Characters don't match, advance both
+                        compactIdx++;
+                        formattedIdx++;
+                    }
+                }
+            }
+            map[json.Length] = formatted.Length;
+            
+            return (formatted, map);
         }
         catch (Exception ex)
         {
-            return $"// JSON Parse Error: {ex.Message}\n{json}";
+            return ($"// JSON Parse Error: {ex.Message}\n{json}", Array.Empty<int>());
         }
+    }
+    
+    public static string FormatJson(string json)
+    {
+        var (formatted, _) = FormatJsonWithMap(json);
+        return formatted;
     }
 
     public static string FormatHex(byte[] data)
