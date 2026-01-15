@@ -3,18 +3,55 @@
         xmlns:vm="using:MsgPackViewer.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:ae="using:AvaloniaEdit"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="600"
         x:Class="MsgPackViewer.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="MsgPackViewer">
+        Title="MsgPackViewer"
+        Width="1200" Height="700">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open..." Command="{Binding OpenFileCommand}" InputGesture="Ctrl+O"/>
+                <MenuItem Header="_Save" Command="{Binding SaveFileCommand}" InputGesture="Ctrl+S"/>
+                <MenuItem Header="Save _As..." Command="{Binding SaveFileAsCommand}" InputGesture="Ctrl+Shift+S"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="OnExitClick"/>
+            </MenuItem>
+        </Menu>
+        
+        <Border DockPanel.Dock="Bottom" Background="#F0F0F0" Padding="8,4">
+            <TextBlock Text="{Binding StatusText}"/>
+        </Border>
+        
+        <Grid ColumnDefinitions="*,5,*">
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="JSON" FontWeight="Bold" Margin="8,4"/>
+                <ae:TextEditor Name="JsonEditor"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               ShowLineNumbers="True"
+                               Margin="4"/>
+            </DockPanel>
+            
+            <GridSplitter Grid.Column="1" Width="5" Background="#CCCCCC"/>
+            
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top" Text="Hex" FontWeight="Bold" Margin="8,4"/>
+                <ae:TextEditor Name="HexEditor"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               ShowLineNumbers="False"
+                               IsReadOnly="True"
+                               Margin="4"/>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
 
 </Window>
