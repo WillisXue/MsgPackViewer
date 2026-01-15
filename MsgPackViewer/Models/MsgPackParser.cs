@@ -9,6 +9,17 @@ namespace MsgPackViewer.Models;
 
 public class MsgPackParser
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+    
+    private static readonly JsonSerializerOptions JsonFormatOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+    
     private byte[] _data = Array.Empty<byte>();
     private int _position;
     private readonly StringBuilder _jsonBuilder = new();
@@ -232,7 +243,7 @@ public class MsgPackParser
         _position++;
         string value = Encoding.UTF8.GetString(_data, _position, length);
         _position += length;
-        _jsonBuilder.Append(JsonSerializer.Serialize(value));
+        _jsonBuilder.Append(JsonSerializer.Serialize(value, JsonOptions));
         return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.String };
     }
 
@@ -242,7 +253,7 @@ public class MsgPackParser
         int length = _data[_position++];
         string value = Encoding.UTF8.GetString(_data, _position, length);
         _position += length;
-        _jsonBuilder.Append(JsonSerializer.Serialize(value));
+        _jsonBuilder.Append(JsonSerializer.Serialize(value, JsonOptions));
         return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.String };
     }
 
@@ -253,7 +264,7 @@ public class MsgPackParser
         _position += 2;
         string value = Encoding.UTF8.GetString(_data, _position, length);
         _position += length;
-        _jsonBuilder.Append(JsonSerializer.Serialize(value));
+        _jsonBuilder.Append(JsonSerializer.Serialize(value, JsonOptions));
         return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.String };
     }
 
@@ -265,7 +276,7 @@ public class MsgPackParser
         _position += 4;
         string value = Encoding.UTF8.GetString(_data, _position, length);
         _position += length;
-        _jsonBuilder.Append(JsonSerializer.Serialize(value));
+        _jsonBuilder.Append(JsonSerializer.Serialize(value, JsonOptions));
         return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.String };
     }
 
@@ -366,8 +377,16 @@ public class MsgPackParser
         for (int i = 0; i < count; i++)
         {
             if (i > 0) _jsonBuilder.Append(',');
+            int keyJsonStart = _jsonBuilder.Length;
             var keyNode = ParseValue($"{path}.key{i}");
             string key = keyNode.Value?.ToString() ?? $"key{i}";
+            // Ensure key is a valid JSON string
+            if (keyNode.NodeType != MsgPackNodeType.String)
+            {
+                // Remove the non-string key and replace with quoted version
+                _jsonBuilder.Length = keyJsonStart;
+                _jsonBuilder.Append(JsonSerializer.Serialize(key, JsonOptions));
+            }
             _jsonBuilder.Append(':');
             node.Children.Add(ParseValue($"{path}.{key}"));
         }
@@ -385,8 +404,14 @@ public class MsgPackParser
         for (int i = 0; i < count; i++)
         {
             if (i > 0) _jsonBuilder.Append(',');
+            int keyJsonStart = _jsonBuilder.Length;
             var keyNode = ParseValue($"{path}.key{i}");
             string key = keyNode.Value?.ToString() ?? $"key{i}";
+            if (keyNode.NodeType != MsgPackNodeType.String)
+            {
+                _jsonBuilder.Length = keyJsonStart;
+                _jsonBuilder.Append(JsonSerializer.Serialize(key, JsonOptions));
+            }
             _jsonBuilder.Append(':');
             node.Children.Add(ParseValue($"{path}.{key}"));
         }
@@ -405,8 +430,14 @@ public class MsgPackParser
         for (int i = 0; i < count; i++)
         {
             if (i > 0) _jsonBuilder.Append(',');
+            int keyJsonStart = _jsonBuilder.Length;
             var keyNode = ParseValue($"{path}.key{i}");
             string key = keyNode.Value?.ToString() ?? $"key{i}";
+            if (keyNode.NodeType != MsgPackNodeType.String)
+            {
+                _jsonBuilder.Length = keyJsonStart;
+                _jsonBuilder.Append(JsonSerializer.Serialize(key, JsonOptions));
+            }
             _jsonBuilder.Append(':');
             node.Children.Add(ParseValue($"{path}.{key}"));
         }
@@ -480,11 +511,16 @@ public class MsgPackParser
         try
         {
             using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            return JsonSerializer.Serialize(doc.RootElement, options);
         }
-        catch
+        catch (Exception ex)
         {
-            return json;
+            return $"// JSON Parse Error: {ex.Message}\n{json}";
         }
     }
 

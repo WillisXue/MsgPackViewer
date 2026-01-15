@@ -50,6 +50,12 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
+            if (data == null || data.Length == 0)
+            {
+                StatusText = "Error: Empty file";
+                return;
+            }
+            
             _rawData = data;
             var (json, rootNode, allNodes) = _parser.Parse(data);
             _rootNode = rootNode;
@@ -59,13 +65,16 @@ public partial class MainWindowViewModel : ViewModelBase
             HexText = MsgPackParser.FormatHex(data);
             CurrentFilePath = filePath;
             IsModified = false;
-            StatusText = filePath != null ? $"Loaded: {filePath}" : "Loaded from bytes";
+            StatusText = filePath != null ? $"Loaded: {filePath} ({data.Length} bytes)" : $"Loaded from bytes ({data.Length} bytes)";
             
             DataLoaded?.Invoke();
         }
         catch (Exception ex)
         {
             StatusText = $"Error: {ex.Message}";
+            HexText = MsgPackParser.FormatHex(data);
+            JsonText = $"// Parse error: {ex.Message}\n// Raw hex displayed on the right";
+            DataLoaded?.Invoke();
         }
     }
 

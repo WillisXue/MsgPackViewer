@@ -56,8 +56,15 @@ public partial class MainWindow : Window
         if (_viewModel == null) return;
         
         _isUpdatingSelection = true;
-        JsonEditor.Text = _viewModel.JsonText;
-        HexEditor.Text = _viewModel.HexText;
+        JsonEditor.Document = new TextDocument(_viewModel.JsonText);
+        HexEditor.Document = new TextDocument(_viewModel.HexText);
+        
+        // Re-add line transformers after document change
+        if (_jsonHighlighter != null && !JsonEditor.TextArea.TextView.LineTransformers.Contains(_jsonHighlighter))
+            JsonEditor.TextArea.TextView.LineTransformers.Add(_jsonHighlighter);
+        if (_hexHighlighter != null && !HexEditor.TextArea.TextView.LineTransformers.Contains(_hexHighlighter))
+            HexEditor.TextArea.TextView.LineTransformers.Add(_hexHighlighter);
+        
         _isUpdatingSelection = false;
         
         _hexHighlighter?.ClearHighlight();
