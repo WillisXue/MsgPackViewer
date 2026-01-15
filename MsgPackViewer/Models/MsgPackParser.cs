@@ -522,36 +522,40 @@ public class MsgPackParser
             int[] map = new int[json.Length + 1];
             int compactIdx = 0;
             int formattedIdx = 0;
+            bool inString = false;
             
             while (compactIdx < json.Length && formattedIdx < formatted.Length)
             {
-                // Skip whitespace in formatted JSON
-                while (formattedIdx < formatted.Length && 
-                       (formatted[formattedIdx] == ' ' || formatted[formattedIdx] == '\n' || 
-                        formatted[formattedIdx] == '\r' || formatted[formattedIdx] == '\t'))
+                char cc = json[compactIdx];
+                
+                // Skip whitespace in formatted JSON (only outside strings)
+                if (!inString)
                 {
-                    formattedIdx++;
+                    while (formattedIdx < formatted.Length && char.IsWhiteSpace(formatted[formattedIdx]))
+                    {
+                        formattedIdx++;
+                    }
                 }
                 
-                if (formattedIdx < formatted.Length)
+                if (formattedIdx >= formatted.Length) break;
+                
+                map[compactIdx] = formattedIdx;
+                
+                // Track string state for proper whitespace handling
+                if (cc == '"' && (compactIdx == 0 || json[compactIdx - 1] != '\\'))
                 {
-                    map[compactIdx] = formattedIdx;
-                    
-                    // Handle string content (may differ due to encoding)
-                    if (json[compactIdx] == formatted[formattedIdx])
-                    {
-                        compactIdx++;
-                        formattedIdx++;
-                    }
-                    else
-                    {
-                        // Characters don't match, advance both
-                        compactIdx++;
-                        formattedIdx++;
-                    }
+                    inString = !inString;
                 }
+                
+                compactIdx++;
+                formattedIdx++;
             }
-            map[json.Length] = formatted.Length;
+            
+            // Fill remaining positions
+            for (int i = compactIdx; i <= json.Length; i++)
+            {
+                map[i] = formatted.Length;
+            }
             
             return (formatted, map);
         }
