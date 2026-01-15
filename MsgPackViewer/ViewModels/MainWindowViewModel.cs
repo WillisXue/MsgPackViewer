@@ -124,19 +124,11 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            var data = MsgPackParser.SerializeFromJson(JsonText);
+            var data = MsgPackParser.RebuildFromJson(JsonText, _rootNode, _rawData);
             await File.WriteAllBytesAsync(path, data);
-            
-            _rawData = data;
-            HexText = MsgPackParser.FormatHex(data);
-            CurrentFilePath = path;
-            IsModified = false;
+
+            LoadFromBytes(data, path);
             StatusText = $"Saved: {path}";
-            
-            var (_, rootNode, allNodes) = _parser.Parse(data);
-            _rootNode = rootNode;
-            _allNodes = allNodes;
-            DataLoaded?.Invoke();
         }
         catch (Exception ex)
         {

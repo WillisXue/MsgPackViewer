@@ -1,8 +1,11 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using MessagePack;
 
 namespace MsgPackViewer.Models;
@@ -11,13 +14,15 @@ public class MsgPackParser
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
     
     private static readonly JsonSerializerOptions JsonFormatOptions = new()
     {
         WriteIndented = true,
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
     
     private byte[] _data = Array.Empty<byte>();
@@ -120,14 +125,14 @@ public class MsgPackParser
     {
         byte value = _data[_position++];
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.PositiveFixInt };
     }
 
     private MsgPackNode ParseNegativeFixInt(string path)
     {
         sbyte value = (sbyte)_data[_position++];
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.NegativeFixInt };
     }
 
     private MsgPackNode ParseNil(string path)
@@ -149,7 +154,7 @@ public class MsgPackParser
         _position++;
         float value = BitConverter.ToSingle(ReadBigEndian(4), 0);
         AppendFloatValue(value);
-        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Float };
+        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Float, NumberFormat = MsgPackNumberFormat.Float32 };
     }
 
     private MsgPackNode ParseFloat64(string path)
@@ -157,7 +162,7 @@ public class MsgPackParser
         _position++;
         double value = BitConverter.ToDouble(ReadBigEndian(8), 0);
         AppendFloatValue(value);
-        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Float };
+        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Float, NumberFormat = MsgPackNumberFormat.Float64 };
     }
     
     private void AppendFloatValue(double value)
@@ -177,7 +182,7 @@ public class MsgPackParser
         _position++;
         byte value = _data[_position++];
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.UInt8 };
     }
 
     private MsgPackNode ParseUInt16(string path)
@@ -186,7 +191,7 @@ public class MsgPackParser
         ushort value = (ushort)((_data[_position] << 8) | _data[_position + 1]);
         _position += 2;
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.UInt16 };
     }
 
     private MsgPackNode ParseUInt32(string path)
@@ -196,7 +201,7 @@ public class MsgPackParser
                            (_data[_position + 2] << 8) | _data[_position + 3]);
         _position += 4;
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.UInt32 };
     }
 
     private MsgPackNode ParseUInt64(string path)
@@ -208,7 +213,7 @@ public class MsgPackParser
                       ((ulong)_data[_position + 6] << 8) | _data[_position + 7];
         _position += 8;
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.UInt64 };
     }
 
     private MsgPackNode ParseInt8(string path)
@@ -216,7 +221,7 @@ public class MsgPackParser
         _position++;
         sbyte value = (sbyte)_data[_position++];
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.Int8 };
     }
 
     private MsgPackNode ParseInt16(string path)
@@ -225,7 +230,7 @@ public class MsgPackParser
         short value = (short)((_data[_position] << 8) | _data[_position + 1]);
         _position += 2;
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.Int16 };
     }
 
     private MsgPackNode ParseInt32(string path)
@@ -235,7 +240,7 @@ public class MsgPackParser
                     (_data[_position + 2] << 8) | _data[_position + 3];
         _position += 4;
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = (long)value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.Int32 };
     }
 
     private MsgPackNode ParseInt64(string path)
@@ -247,7 +252,7 @@ public class MsgPackParser
                      ((long)_data[_position + 6] << 8) | _data[_position + 7];
         _position += 8;
         _jsonBuilder.Append(value);
-        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Integer };
+        return new MsgPackNode { Value = value, NodeType = MsgPackNodeType.Integer, NumberFormat = MsgPackNumberFormat.Int64 };
     }
 
     private MsgPackNode ParseString(string path, int length)
@@ -400,6 +405,7 @@ public class MsgPackParser
                 _jsonBuilder.Append(JsonSerializer.Serialize(key, JsonOptions));
             }
             _jsonBuilder.Append(':');
+            node.Children.Add(keyNode);
             node.Children.Add(ParseValue($"{path}.{key}"));
         }
         _jsonBuilder.Append('}');
@@ -425,6 +431,7 @@ public class MsgPackParser
                 _jsonBuilder.Append(JsonSerializer.Serialize(key, JsonOptions));
             }
             _jsonBuilder.Append(':');
+            node.Children.Add(keyNode);
             node.Children.Add(ParseValue($"{path}.{key}"));
         }
         _jsonBuilder.Append('}');
@@ -451,6 +458,7 @@ public class MsgPackParser
                 _jsonBuilder.Append(JsonSerializer.Serialize(key, JsonOptions));
             }
             _jsonBuilder.Append(':');
+            node.Children.Add(keyNode);
             node.Children.Add(ParseValue($"{path}.{key}"));
         }
         _jsonBuilder.Append('}');
@@ -610,7 +618,597 @@ public class MsgPackParser
 
     public static byte[] SerializeFromJson(string json)
     {
-        var jsonDoc = JsonDocument.Parse(json);
         return MessagePackSerializer.ConvertFromJson(json);
+    }
+
+    public static byte[] RebuildFromJson(string editedJson, MsgPackNode? rootNode, byte[] originalData)
+    {
+        if (rootNode == null)
+        {
+            return MessagePackSerializer.ConvertFromJson(editedJson);
+        }
+
+        try
+        {
+            using var jsonDoc = JsonDocument.Parse(editedJson);
+            using var ms = new MemoryStream();
+            SerializeNode(ms, jsonDoc.RootElement, rootNode, originalData);
+            return ms.ToArray();
+        }
+        catch
+        {
+            return MessagePackSerializer.ConvertFromJson(editedJson);
+        }
+    }
+
+    private static void SerializeNode(MemoryStream ms, JsonElement jsonElement, MsgPackNode node, byte[] originalData)
+    {
+        switch (node.NodeType)
+        {
+            case MsgPackNodeType.Nil:
+                ms.WriteByte(0xc0);
+                break;
+            case MsgPackNodeType.Boolean:
+                ms.WriteByte(ReadBoolean(jsonElement, node.Value) ? (byte)0xc3 : (byte)0xc2);
+                break;
+            case MsgPackNodeType.Integer:
+                if (IsUnsignedFormat(node.NumberFormat))
+                {
+                    ulong uValue = ReadUInt64(jsonElement, node.Value);
+                    WriteUnsignedWithFormat(ms, uValue, node.NumberFormat);
+                }
+                else
+                {
+                    long iValue = ReadInt64(jsonElement, node.Value);
+                    WriteIntegerWithFormat(ms, iValue, node.NumberFormat);
+                }
+                break;
+            case MsgPackNodeType.Float:
+                double floatValue = ReadDouble(jsonElement, node.Value);
+                WriteFloatWithFormat(ms, floatValue, node.NumberFormat);
+                break;
+            case MsgPackNodeType.String:
+                string strValue = jsonElement.ValueKind == JsonValueKind.String
+                    ? jsonElement.GetString() ?? string.Empty
+                    : jsonElement.ToString();
+                WriteString(ms, strValue);
+                break;
+            case MsgPackNodeType.Binary:
+                WriteBinary(ms, ReadBinary(jsonElement, node.Value));
+                break;
+            case MsgPackNodeType.Array:
+                if (jsonElement.ValueKind != JsonValueKind.Array)
+                    throw new InvalidOperationException("Array expected");
+                if (jsonElement.GetArrayLength() != node.Children.Count)
+                    throw new InvalidOperationException("Array length mismatch");
+                WriteArrayHeader(ms, node.Children.Count);
+                int arrayIndex = 0;
+                foreach (var item in jsonElement.EnumerateArray())
+                {
+                    SerializeNode(ms, item, node.Children[arrayIndex], originalData);
+                    arrayIndex++;
+                }
+                break;
+            case MsgPackNodeType.Map:
+                if (jsonElement.ValueKind != JsonValueKind.Object)
+                    throw new InvalidOperationException("Object expected");
+                var props = jsonElement.EnumerateObject().ToList();
+                int expectedPairs = node.Children.Count / 2;
+                if (props.Count != expectedPairs)
+                    throw new InvalidOperationException("Map size mismatch");
+                WriteMapHeader(ms, expectedPairs);
+                for (int i = 0; i < expectedPairs; i++)
+                {
+                    var keyNode = node.Children[i * 2];
+                    var valueNode = node.Children[i * 2 + 1];
+                    var prop = props[i];
+                    WriteMapKey(ms, keyNode, prop.Name, originalData);
+                    SerializeNode(ms, prop.Value, valueNode, originalData);
+                }
+                break;
+            case MsgPackNodeType.Extension:
+                if (node.Value is ValueTuple<sbyte, byte[]> extValue)
+                {
+                    WriteExtension(ms, extValue.Item1, extValue.Item2);
+                }
+                else
+                {
+                    WriteOriginalBytes(ms, node, originalData);
+                }
+                break;
+        }
+    }
+
+    private static void WriteMapKey(MemoryStream ms, MsgPackNode keyNode, string editedKey, byte[] originalData)
+    {
+        switch (keyNode.NodeType)
+        {
+            case MsgPackNodeType.String:
+                WriteString(ms, editedKey);
+                return;
+            case MsgPackNodeType.Integer:
+                if (IsUnsignedFormat(keyNode.NumberFormat))
+                {
+                    if (ulong.TryParse(editedKey, System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var uValue))
+                    {
+                        WriteUnsignedWithFormat(ms, uValue, keyNode.NumberFormat);
+                    }
+                    else if (keyNode.Value is ulong uOriginal)
+                    {
+                        WriteUnsignedWithFormat(ms, uOriginal, keyNode.NumberFormat);
+                    }
+                    else
+                    {
+                        WriteOriginalBytes(ms, keyNode, originalData);
+                    }
+                }
+                else
+                {
+                    if (long.TryParse(editedKey, System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var iValue))
+                    {
+                        WriteIntegerWithFormat(ms, iValue, keyNode.NumberFormat);
+                    }
+                    else if (keyNode.Value is long iOriginal)
+                    {
+                        WriteIntegerWithFormat(ms, iOriginal, keyNode.NumberFormat);
+                    }
+                    else
+                    {
+                        WriteOriginalBytes(ms, keyNode, originalData);
+                    }
+                }
+                return;
+            case MsgPackNodeType.Boolean:
+                ms.WriteByte(ReadBooleanFromString(editedKey, keyNode.Value) ? (byte)0xc3 : (byte)0xc2);
+                return;
+            case MsgPackNodeType.Nil:
+                ms.WriteByte(0xc0);
+                return;
+            default:
+                WriteOriginalBytes(ms, keyNode, originalData);
+                return;
+        }
+    }
+
+    private static bool ReadBoolean(JsonElement element, object? fallback)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String => ReadBooleanFromString(element.GetString() ?? string.Empty, fallback),
+            _ => fallback is bool b && b
+        };
+    }
+
+    private static bool ReadBooleanFromString(string value, object? fallback)
+    {
+        if (bool.TryParse(value, out var result))
+            return result;
+        return fallback is bool b && b;
+    }
+
+    private static long ReadInt64(JsonElement element, object? fallback)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out var value))
+            return value;
+        if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(),
+            System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value))
+            return value;
+        return fallback switch
+        {
+            long v => v,
+            int v => v,
+            short v => v,
+            sbyte v => v,
+            _ => 0
+        };
+    }
+
+    private static ulong ReadUInt64(JsonElement element, object? fallback)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetUInt64(out var value))
+            return value;
+        if (element.ValueKind == JsonValueKind.String && ulong.TryParse(element.GetString(),
+            System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out value))
+            return value;
+        return fallback switch
+        {
+            ulong v => v,
+            uint v => v,
+            ushort v => v,
+            byte v => v,
+            long v when v >= 0 => (ulong)v,
+            _ => 0
+        };
+    }
+
+    private static double ReadDouble(JsonElement element, object? fallback)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetDouble(out var value))
+            return value;
+        if (element.ValueKind == JsonValueKind.String)
+            return ParseSpecialFloat(element.GetString() ?? string.Empty);
+        return fallback switch
+        {
+            double v => v,
+            float v => v,
+            _ => 0
+        };
+    }
+
+    private static byte[] ReadBinary(JsonElement element, object? fallback)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            try
+            {
+                return Convert.FromBase64String(element.GetString() ?? string.Empty);
+            }
+            catch
+            {
+                return Array.Empty<byte>();
+            }
+        }
+
+        return fallback as byte[] ?? Array.Empty<byte>();
+    }
+
+    private static bool IsUnsignedFormat(MsgPackNumberFormat format)
+    {
+        return format is MsgPackNumberFormat.PositiveFixInt or MsgPackNumberFormat.UInt8 or
+            MsgPackNumberFormat.UInt16 or MsgPackNumberFormat.UInt32 or MsgPackNumberFormat.UInt64;
+    }
+
+    private static void WriteIntegerWithFormat(MemoryStream ms, long value, MsgPackNumberFormat format)
+    {
+        switch (format)
+        {
+            case MsgPackNumberFormat.PositiveFixInt when value >= 0 && value <= 0x7f:
+                ms.WriteByte((byte)value);
+                return;
+            case MsgPackNumberFormat.NegativeFixInt when value >= -32 && value < 0:
+                ms.WriteByte((byte)value);
+                return;
+            case MsgPackNumberFormat.Int8 when value >= sbyte.MinValue && value <= sbyte.MaxValue:
+                ms.WriteByte(0xd0);
+                ms.WriteByte((byte)(sbyte)value);
+                return;
+            case MsgPackNumberFormat.Int16 when value >= short.MinValue && value <= short.MaxValue:
+                ms.WriteByte(0xd1);
+                WriteInt16(ms, (short)value);
+                return;
+            case MsgPackNumberFormat.Int32 when value >= int.MinValue && value <= int.MaxValue:
+                ms.WriteByte(0xd2);
+                WriteInt32(ms, (int)value);
+                return;
+            case MsgPackNumberFormat.Int64:
+                ms.WriteByte(0xd3);
+                WriteInt64(ms, value);
+                return;
+        }
+
+        WriteInteger(ms, value);
+    }
+
+    private static void WriteUnsignedWithFormat(MemoryStream ms, ulong value, MsgPackNumberFormat format)
+    {
+        switch (format)
+        {
+            case MsgPackNumberFormat.PositiveFixInt when value <= 0x7f:
+                ms.WriteByte((byte)value);
+                return;
+            case MsgPackNumberFormat.UInt8 when value <= byte.MaxValue:
+                ms.WriteByte(0xcc);
+                ms.WriteByte((byte)value);
+                return;
+            case MsgPackNumberFormat.UInt16 when value <= ushort.MaxValue:
+                ms.WriteByte(0xcd);
+                WriteUInt16(ms, (ushort)value);
+                return;
+            case MsgPackNumberFormat.UInt32 when value <= uint.MaxValue:
+                ms.WriteByte(0xce);
+                WriteUInt32(ms, (uint)value);
+                return;
+            case MsgPackNumberFormat.UInt64:
+                ms.WriteByte(0xcf);
+                WriteUInt64(ms, value);
+                return;
+        }
+
+        if (value <= long.MaxValue)
+        {
+            WriteInteger(ms, (long)value);
+        }
+        else
+        {
+            ms.WriteByte(0xcf);
+            WriteUInt64(ms, value);
+        }
+    }
+
+    private static void WriteFloatWithFormat(MemoryStream ms, double value, MsgPackNumberFormat format)
+    {
+        if (format == MsgPackNumberFormat.Float32)
+        {
+            WriteFloat32(ms, (float)value);
+        }
+        else
+        {
+            WriteFloat64(ms, value);
+        }
+    }
+
+    private static void WriteInteger(MemoryStream ms, long value)
+    {
+        if (value >= 0 && value <= 127)
+        {
+            ms.WriteByte((byte)value);
+        }
+        else if (value >= -32 && value < 0)
+        {
+            ms.WriteByte((byte)value);
+        }
+        else if (value >= 0 && value <= byte.MaxValue)
+        {
+            ms.WriteByte(0xcc);
+            ms.WriteByte((byte)value);
+        }
+        else if (value >= 0 && value <= ushort.MaxValue)
+        {
+            ms.WriteByte(0xcd);
+            WriteUInt16(ms, (ushort)value);
+        }
+        else if (value >= 0 && value <= uint.MaxValue)
+        {
+            ms.WriteByte(0xce);
+            WriteUInt32(ms, (uint)value);
+        }
+        else if (value >= sbyte.MinValue && value <= sbyte.MaxValue)
+        {
+            ms.WriteByte(0xd0);
+            ms.WriteByte((byte)(sbyte)value);
+        }
+        else if (value >= short.MinValue && value <= short.MaxValue)
+        {
+            ms.WriteByte(0xd1);
+            WriteInt16(ms, (short)value);
+        }
+        else if (value >= int.MinValue && value <= int.MaxValue)
+        {
+            ms.WriteByte(0xd2);
+            WriteInt32(ms, (int)value);
+        }
+        else
+        {
+            ms.WriteByte(0xd3);
+            WriteInt64(ms, value);
+        }
+    }
+
+    private static void WriteFloat32(MemoryStream ms, float value)
+    {
+        ms.WriteByte(0xca);
+        byte[] bytes = BitConverter.GetBytes(value);
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
+        ms.Write(bytes, 0, bytes.Length);
+    }
+
+    private static void WriteFloat64(MemoryStream ms, double value)
+    {
+        ms.WriteByte(0xcb);
+        byte[] bytes = BitConverter.GetBytes(value);
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
+        ms.Write(bytes, 0, bytes.Length);
+    }
+
+    private static void WriteString(MemoryStream ms, string value)
+    {
+        byte[] utf8 = Encoding.UTF8.GetBytes(value);
+        int len = utf8.Length;
+        if (len <= 31)
+        {
+            ms.WriteByte((byte)(0xa0 | len));
+        }
+        else if (len <= byte.MaxValue)
+        {
+            ms.WriteByte(0xd9);
+            ms.WriteByte((byte)len);
+        }
+        else if (len <= ushort.MaxValue)
+        {
+            ms.WriteByte(0xda);
+            WriteUInt16(ms, (ushort)len);
+        }
+        else
+        {
+            ms.WriteByte(0xdb);
+            WriteUInt32(ms, (uint)len);
+        }
+        ms.Write(utf8, 0, utf8.Length);
+    }
+
+    private static void WriteBinary(MemoryStream ms, byte[] data)
+    {
+        int len = data.Length;
+        if (len <= byte.MaxValue)
+        {
+            ms.WriteByte(0xc4);
+            ms.WriteByte((byte)len);
+        }
+        else if (len <= ushort.MaxValue)
+        {
+            ms.WriteByte(0xc5);
+            WriteUInt16(ms, (ushort)len);
+        }
+        else
+        {
+            ms.WriteByte(0xc6);
+            WriteUInt32(ms, (uint)len);
+        }
+        ms.Write(data, 0, data.Length);
+    }
+
+    private static void WriteArrayHeader(MemoryStream ms, int count)
+    {
+        if (count <= 15)
+        {
+            ms.WriteByte((byte)(0x90 | count));
+        }
+        else if (count <= ushort.MaxValue)
+        {
+            ms.WriteByte(0xdc);
+            WriteUInt16(ms, (ushort)count);
+        }
+        else
+        {
+            ms.WriteByte(0xdd);
+            WriteUInt32(ms, (uint)count);
+        }
+    }
+
+    private static void WriteMapHeader(MemoryStream ms, int count)
+    {
+        if (count <= 15)
+        {
+            ms.WriteByte((byte)(0x80 | count));
+        }
+        else if (count <= ushort.MaxValue)
+        {
+            ms.WriteByte(0xde);
+            WriteUInt16(ms, (ushort)count);
+        }
+        else
+        {
+            ms.WriteByte(0xdf);
+            WriteUInt32(ms, (uint)count);
+        }
+    }
+
+    private static void WriteExtension(MemoryStream ms, sbyte type, byte[] data)
+    {
+        int len = data.Length;
+        switch (len)
+        {
+            case 1:
+                ms.WriteByte(0xd4);
+                ms.WriteByte((byte)type);
+                break;
+            case 2:
+                ms.WriteByte(0xd5);
+                ms.WriteByte((byte)type);
+                break;
+            case 4:
+                ms.WriteByte(0xd6);
+                ms.WriteByte((byte)type);
+                break;
+            case 8:
+                ms.WriteByte(0xd7);
+                ms.WriteByte((byte)type);
+                break;
+            case 16:
+                ms.WriteByte(0xd8);
+                ms.WriteByte((byte)type);
+                break;
+            default:
+                if (len <= byte.MaxValue)
+                {
+                    ms.WriteByte(0xc7);
+                    ms.WriteByte((byte)len);
+                    ms.WriteByte((byte)type);
+                }
+                else if (len <= ushort.MaxValue)
+                {
+                    ms.WriteByte(0xc8);
+                    WriteUInt16(ms, (ushort)len);
+                    ms.WriteByte((byte)type);
+                }
+                else
+                {
+                    ms.WriteByte(0xc9);
+                    WriteUInt32(ms, (uint)len);
+                    ms.WriteByte((byte)type);
+                }
+                break;
+        }
+        ms.Write(data, 0, data.Length);
+    }
+
+    private static void WriteUInt16(MemoryStream ms, ushort value)
+    {
+        ms.WriteByte((byte)(value >> 8));
+        ms.WriteByte((byte)value);
+    }
+
+    private static void WriteUInt32(MemoryStream ms, uint value)
+    {
+        ms.WriteByte((byte)(value >> 24));
+        ms.WriteByte((byte)(value >> 16));
+        ms.WriteByte((byte)(value >> 8));
+        ms.WriteByte((byte)value);
+    }
+
+    private static void WriteUInt64(MemoryStream ms, ulong value)
+    {
+        ms.WriteByte((byte)(value >> 56));
+        ms.WriteByte((byte)(value >> 48));
+        ms.WriteByte((byte)(value >> 40));
+        ms.WriteByte((byte)(value >> 32));
+        ms.WriteByte((byte)(value >> 24));
+        ms.WriteByte((byte)(value >> 16));
+        ms.WriteByte((byte)(value >> 8));
+        ms.WriteByte((byte)value);
+    }
+
+    private static void WriteInt16(MemoryStream ms, short value)
+    {
+        WriteUInt16(ms, (ushort)value);
+    }
+
+    private static void WriteInt32(MemoryStream ms, int value)
+    {
+        WriteUInt32(ms, (uint)value);
+    }
+
+    private static void WriteInt64(MemoryStream ms, long value)
+    {
+        ms.WriteByte((byte)(value >> 56));
+        ms.WriteByte((byte)(value >> 48));
+        ms.WriteByte((byte)(value >> 40));
+        ms.WriteByte((byte)(value >> 32));
+        ms.WriteByte((byte)(value >> 24));
+        ms.WriteByte((byte)(value >> 16));
+        ms.WriteByte((byte)(value >> 8));
+        ms.WriteByte((byte)value);
+    }
+
+    private static void WriteOriginalBytes(MemoryStream ms, MsgPackNode node, byte[] originalData)
+    {
+        if (node.StartOffset >= 0 && node.EndOffset > node.StartOffset && node.EndOffset <= originalData.Length)
+        {
+            ms.Write(originalData, node.StartOffset, node.EndOffset - node.StartOffset);
+        }
+        else
+        {
+            ms.WriteByte(0xc0);
+        }
+    }
+
+    private static double ParseSpecialFloat(string str)
+    {
+        return str switch
+        {
+            "NaN" => double.NaN,
+            "Infinity" => double.PositiveInfinity,
+            "-Infinity" => double.NegativeInfinity,
+            _ => double.TryParse(str, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var value)
+                ? value
+                : 0
+        };
     }
 }
